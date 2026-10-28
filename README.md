@@ -11,8 +11,13 @@
         h2 { text-align: center; color: #4facfe; }
         .form-group { margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; }
         input, select { padding: 8px; border-radius: 5px; border: 1px solid #4facfe; background-color: #1e1e2f; color: white; width: 60%; }
+        
+        /* 수정 모드일 때 입력칸 배경색 처리 (잠금 표시) */
+        input:read-only { background-color: #555; cursor: not-allowed; border: 1px solid #777; color: #ccc; } 
+        
         button { width: 100%; padding: 15px; border: none; color: white; font-weight: bold; font-size: 16px; border-radius: 5px; cursor: pointer; margin-top: 10px; }
         .btn-submit { background: linear-gradient(to right, #4facfe 0%, #00f2fe 100%); }
+        .btn-cancel { background: #9e9e9e; display: none; }
         .btn-load { background: #ff9800; margin-bottom: 10px; }
         .btn-excel { background: #4caf50; }
         button:hover { opacity: 0.9; }
@@ -20,32 +25,22 @@
         /* 표(테이블) 디자인 완벽 고정 (하얀 배경에 검은 글씨) */
         table { width: 100%; border-collapse: collapse; margin-top: 15px; }
         th { background-color: #4facfe; color: #000000; padding: 10px; border: 1px solid #444; font-weight: bold; }
-        td { 
-            background-color: #ffffff; /* 배경을 무조건 하얀색으로 */
-            color: #000000; /* 글자를 무조건 검은색으로 */
-            padding: 10px; 
-            border: 1px solid #cccccc; 
-            text-align: center; 
-            font-size: 14px; 
-            font-weight: 500;
-        }
+        td { background-color: #ffffff; color: #000000; padding: 10px; border: 1px solid #cccccc; text-align: center; font-size: 14px; font-weight: 500; }
         
-        /* 총점 뱃지 디자인 */
-        .score-badge { 
-            color: #ffffff; 
-            padding: 4px 12px; 
-            border-radius: 5px; 
-            font-weight: bold; 
-            display: inline-block;
-        }
+        /* 점수 뱃지 및 작은 수정 버튼 */
+        .score-badge { color: #ffffff; padding: 4px 12px; border-radius: 5px; font-weight: bold; display: inline-block; }
+        .btn-edit { background-color: #E91E63; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; font-size: 12px; width: auto; margin: 0;}
         .action-buttons { display: flex; gap: 10px; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>동맹원 점수 입력</h2>
+    <h2 id="formTitle">동맹원 점수 신규 입력</h2>
     <form id="allianceForm">
+        <!-- actionType을 이용해 신규(append)인지 수정(update)인지 구분 -->
+        <input type="hidden" id="actionType" value="append">
+
         <div class="form-group"><label>아이디</label><input type="text" id="memberId" required></div>
         <div class="form-group"><label>닉네임</label><input type="text" id="nickname" required></div>
         <div class="form-group">
@@ -79,7 +74,8 @@
             <input type="number" id="svsPrep" value="0" placeholder="점수 입력">
         </div>
 
-        <button type="submit" class="btn-submit" id="submitBtn">구글 시트에 저장</button>
+        <button type="submit" class="btn-submit" id="submitBtn">구글 시트에 신규 저장</button>
+        <button type="button" class="btn-cancel" id="cancelBtn" onclick="cancelEdit()">수정 취소하기</button>
     </form>
 </div>
 
@@ -105,22 +101,27 @@
                     <th>SVS준비</th>
                     <th>총점</th>
                     <th>기록일시</th>
+                    <th>관리</th> <!-- 수정 버튼을 위한 열 -->
                 </tr>
             </thead>
             <tbody id="allRecordTable">
-                <tr><td colspan="10">데이터를 불러와 주세요.</td></tr>
+                <tr><td colspan="11">데이터를 불러와 주세요.</td></tr>
             </tbody>
         </table>
     </div>
 </div>
 
 <script>
-    const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbxeLvHvpmdSHcSbeGGDIaFL9Z1B3XwfZO5B7cv7F42RFJl3BjhPQMee4APQHIGtl3Oi/exec";
+    // ★ 알려주신 새로운 구글 앱스 스크립트 '웹 앱 URL' 적용 완료 ★
+    const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbxNSGW65c-7JaqkWbCG3JakHgTkIxL3EZgOIXTete2P6QyvQswxgq1FsYmA2oYGAi8/exec";
+
+    let globalSheetData = []; 
 
     document.getElementById('allianceForm').addEventListener('submit', function(e) {
         e.preventDefault();
         const btn = document.getElementById('submitBtn');
-        btn.innerText = "저장 중...";
+        const isUpdate = document.getElementById('actionType').value === "update";
+        btn.innerText = "데이터 전송 중...";
         btn.disabled = true;
 
         const svsScore = parseInt(document.getElementById('svs').value) || 0;
@@ -129,9 +130,11 @@
         const namecardScore = parseInt(document.getElementById('namecard').value) || 0;
         const svsPrepScore = parseInt(document.getElementById('svsPrep').value) || 0;
         
+        // 총점 계산 (명함점수, SVS준비 제외)
         const total = svsScore + weaponScore + canyonScore;
 
         const data = {
+            action: document.getElementById('actionType').value,
             id: document.getElementById('memberId').value,
             nickname: document.getElementById('nickname').value,
             role: document.getElementById('role').value,
@@ -149,18 +152,12 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
         }).then(() => {
-            alert('저장 완료!');
-            document.getElementById('allianceForm').reset();
-            document.getElementById('namecard').value = 0;
-            document.getElementById('svsPrep').value = 0;
-            
-            btn.innerText = "구글 시트에 저장";
-            btn.disabled = false;
-            loadData();
+            alert(isUpdate ? '정보가 성공적으로 수정되었습니다!' : '신규 저장이 완료되었습니다!');
+            cancelEdit(); 
+            loadData();   
         }).catch(err => {
-            alert('저장 오류가 발생했습니다.');
-            btn.innerText = "구글 시트에 저장";
-            btn.disabled = false;
+            alert('오류가 발생했습니다.');
+            cancelEdit();
         });
     });
 
@@ -168,17 +165,18 @@
         const btn = document.getElementById('loadBtn');
         const tbody = document.getElementById('allRecordTable');
         btn.innerText = "불러오는 중...";
-        tbody.innerHTML = '<tr><td colspan="10">구글 시트에서 데이터를 읽고 있습니다...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="11">구글 시트에서 데이터를 읽고 있습니다...</td></tr>';
 
         fetch(GOOGLE_SHEET_URL)
             .then(response => response.text())
             .then(text => {
                 try {
                     const data = JSON.parse(text);
+                    globalSheetData = data; 
                     tbody.innerHTML = ""; 
                     
                     if(data.length <= 1) {
-                        tbody.innerHTML = '<tr><td colspan="10">기록된 데이터가 없습니다.</td></tr>';
+                        tbody.innerHTML = '<tr><td colspan="11">기록된 데이터가 없습니다.</td></tr>';
                         btn.innerText = "데이터 불러오기 (새로고침)";
                         return;
                     }
@@ -187,33 +185,15 @@
                         let row = data[i];
                         if(!row || row.length === 0 || !row[0]) continue; 
                         
-                        let namecard = 0;
-                        let svsPrep = 0;
-                        let totalScore = 0;
-                        let dateStr = "";
+                        let namecard = row.length > 8 && row[6] !== undefined ? row[6] : 0;
+                        let svsPrep = row.length > 8 && row[7] !== undefined ? row[7] : 0;
+                        let totalScore = row.length > 8 ? (row[8] !== undefined ? row[8] : 0) : (row[6] !== undefined ? row[6] : 0);
+                        let dateStr = row.length > 8 ? (row[9] ? new Date(row[9]).toLocaleString('ko-KR') : "") : (row[7] ? new Date(row[7]).toLocaleString('ko-KR') : "");
 
-                        if (row.length <= 8) {
-                            totalScore = row[6] !== undefined ? row[6] : 0;
-                            dateStr = row[7] ? new Date(row[7]).toLocaleString('ko-KR') : "";
-                        } else {
-                            namecard = row[6] !== undefined ? row[6] : 0;
-                            svsPrep = row[7] !== undefined ? row[7] : 0;
-                            totalScore = row[8] !== undefined ? row[8] : 0;
-                            dateStr = row[9] ? new Date(row[9]).toLocaleString('ko-KR') : "";
-                        }
-
-                        // 총점 숫자로 변환 후 색상 판별
                         let scoreNum = parseInt(totalScore, 10);
                         if(isNaN(scoreNum)) scoreNum = 0;
 
-                        let badgeColor = "";
-                        if (scoreNum > 0) {
-                            badgeColor = "#2196F3"; // 양수: 파란색
-                        } else if (scoreNum === 0) {
-                            badgeColor = "#4CAF50"; // 0: 초록색
-                        } else {
-                            badgeColor = "#F44336"; // 음수: 빨간색
-                        }
+                        let badgeColor = scoreNum > 0 ? "#2196F3" : (scoreNum === 0 ? "#4CAF50" : "#F44336");
 
                         let tr = document.createElement('tr');
                         tr.innerHTML = `
@@ -227,20 +207,71 @@
                             <td>${svsPrep}</td>
                             <td><span class="score-badge" style="background-color: ${badgeColor};">${scoreNum}</span></td>
                             <td style="font-size:11px;">${dateStr}</td>
+                            <td><button class="btn-edit" onclick="editMember(${i})">수정</button></td>
                         `;
                         tbody.appendChild(tr);
                     }
                     btn.innerText = "데이터 불러오기 (새로고침)";
                 } catch (e) {
                     console.error(e);
-                    tbody.innerHTML = '<tr><td colspan="10" style="color:#ff5722;">데이터를 불러오지 못했습니다.</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="11" style="color:#ff5722;">데이터를 불러오지 못했습니다.</td></tr>';
                     btn.innerText = "데이터 불러오기 (새로고침)";
                 }
             })
             .catch(err => {
-                tbody.innerHTML = '<tr><td colspan="10">통신 오류가 발생했습니다.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="11">통신 오류가 발생했습니다.</td></tr>';
                 btn.innerText = "데이터 불러오기 (새로고침)";
             });
+    }
+
+    function editMember(index) {
+        let row = globalSheetData[index];
+        
+        document.getElementById('actionType').value = "update";
+        document.getElementById('formTitle').innerText = "동맹원 점수 수정 모드";
+        
+        document.getElementById('memberId').value = row[0];
+        document.getElementById('memberId').readOnly = true; 
+        
+        document.getElementById('nickname').value = row[1];
+        document.getElementById('nickname').readOnly = true; 
+        
+        document.getElementById('role').value = row[2] || "R1";
+        
+        document.getElementById('svs').value = row[3] !== undefined ? row[3] : "0";
+        document.getElementById('weapon').value = row[4] !== undefined ? row[4] : "0";
+        document.getElementById('canyon').value = row[5] !== undefined ? row[5] : "0";
+        
+        document.getElementById('namecard').value = row.length > 8 && row[6] !== undefined ? row[6] : "0";
+        document.getElementById('svsPrep').value = row.length > 8 && row[7] !== undefined ? row[7] : "0";
+
+        let submitBtn = document.getElementById('submitBtn');
+        submitBtn.innerText = "변경된 점수 저장하기 (구글 시트 덮어쓰기)";
+        submitBtn.style.background = "linear-gradient(to right, #ff416c, #ff4b2b)"; 
+        submitBtn.disabled = false;
+        
+        document.getElementById('cancelBtn').style.display = "block"; 
+        window.scrollTo({top: 0, behavior: 'smooth'});
+    }
+
+    function cancelEdit() {
+        document.getElementById('allianceForm').reset();
+        
+        document.getElementById('actionType').value = "append";
+        document.getElementById('formTitle').innerText = "동맹원 점수 신규 입력";
+        
+        document.getElementById('memberId').readOnly = false; 
+        document.getElementById('nickname').readOnly = false; 
+        
+        document.getElementById('namecard').value = 0;
+        document.getElementById('svsPrep').value = 0;
+        
+        let submitBtn = document.getElementById('submitBtn');
+        submitBtn.innerText = "구글 시트에 신규 저장";
+        submitBtn.style.background = "linear-gradient(to right, #4facfe 0%, #00f2fe 100%)";
+        submitBtn.disabled = false;
+        
+        document.getElementById('cancelBtn').style.display = "none";
     }
 
     function downloadExcel() {
