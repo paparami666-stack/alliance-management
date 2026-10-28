@@ -16,14 +16,15 @@
         .btn-load { background: #ff9800; margin-bottom: 10px; }
         .btn-excel { background: #4caf50; }
         button:hover { opacity: 0.9; }
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; background-color: #1e1e2f; }
-        th, td { border: 1px solid #444; padding: 10px; text-align: center; font-size: 13px; }
-        th { background-color: #4facfe; color: black; }
-        /* 총점 디자인 개선: 오렌지색 배경에 하얀 글씨로 확 눈에 띄게 변경 */
-        .score-total span { 
-            background-color: #ff5722; 
+        
+        /* 표(테이블) 배경색과 글자색 명확하게 고정 */
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th { background-color: #4facfe; color: #000000; padding: 10px; border: 1px solid #444; }
+        td { background-color: #2a2a40; color: #ffffff; padding: 10px; border: 1px solid #555; text-align: center; font-size: 13px; }
+        
+        .score-badge { 
             color: #ffffff; 
-            padding: 4px 10px; 
+            padding: 4px 12px; 
             border-radius: 5px; 
             font-weight: bold; 
             display: inline-block;
@@ -41,8 +42,8 @@
         <div class="form-group">
             <label>직책</label>
             <select id="role">
-                <option value="R5">R5 </option><option value="R4">R4 </option>
-                <option value="R3">R3</option><option value="R2">R2</option><option value="R1">R1 </option>
+                <option value="R5">R5 (맹주)</option><option value="R4">R4 (간부)</option>
+                <option value="R3">R3</option><option value="R2">R2</option><option value="R1">R1 (신입)</option>
             </select>
         </div>
         <hr style="border-color:#444; margin: 20px 0;">
@@ -61,11 +62,11 @@
         
         <hr style="border-color:#444; margin: 20px 0;">
         <div class="form-group">
-            <label>명함점수 </label>
+            <label>명함점수 (비교용)</label>
             <input type="number" id="namecard" value="0" placeholder="점수 입력">
         </div>
         <div class="form-group">
-            <label>SVS 준비단계 점수 </label>
+            <label>SVS 준비단계 점수 (비교용)</label>
             <input type="number" id="svsPrep" value="0" placeholder="점수 입력">
         </div>
 
@@ -175,37 +176,47 @@
 
                     for(let i = 1; i < data.length; i++) {
                         let row = data[i];
-                        if(!row[0]) continue; 
+                        if(!row || row.length === 0 || !row[0]) continue; 
                         
-                        // 옛날 데이터(8칸)와 요즘 데이터(10칸) 호환성 맞춤 처리
                         let namecard = 0;
                         let svsPrep = 0;
                         let totalScore = 0;
                         let dateStr = "";
 
                         if (row.length <= 8) {
-                            // 항목 추가 전 과거 데이터
                             totalScore = row[6] !== undefined ? row[6] : 0;
                             dateStr = row[7] ? new Date(row[7]).toLocaleString('ko-KR') : "";
                         } else {
-                            // 항목 추가 후 최신 데이터
                             namecard = row[6] !== undefined ? row[6] : 0;
                             svsPrep = row[7] !== undefined ? row[7] : 0;
                             totalScore = row[8] !== undefined ? row[8] : 0;
                             dateStr = row[9] ? new Date(row[9]).toLocaleString('ko-KR') : "";
                         }
 
+                        // 총점 숫자로 변환 후 색상 판별
+                        let scoreNum = parseInt(totalScore, 10);
+                        if(isNaN(scoreNum)) scoreNum = 0;
+
+                        let badgeColor = "";
+                        if (scoreNum > 0) {
+                            badgeColor = "#2196F3"; // 양수: 파란색
+                        } else if (scoreNum === 0) {
+                            badgeColor = "#4CAF50"; // 0: 초록색
+                        } else {
+                            badgeColor = "#F44336"; // 음수: 빨간색
+                        }
+
                         let tr = document.createElement('tr');
                         tr.innerHTML = `
-                            <td>${row[0] || ""}</td>
-                            <td>${row[1] || ""}</td>
-                            <td>${row[2] || ""}</td>
+                            <td>${row[0] !== undefined ? row[0] : ""}</td>
+                            <td>${row[1] !== undefined ? row[1] : ""}</td>
+                            <td>${row[2] !== undefined ? row[2] : ""}</td>
                             <td>${row[3] !== undefined ? row[3] : "0"}</td>
                             <td>${row[4] !== undefined ? row[4] : "0"}</td>
                             <td>${row[5] !== undefined ? row[5] : "0"}</td>
                             <td>${namecard}</td>
                             <td>${svsPrep}</td>
-                            <td class="score-total"><span>${totalScore}</span></td>
+                            <td><span class="score-badge" style="background-color: ${badgeColor};">${scoreNum}</span></td>
                             <td style="font-size:11px;">${dateStr}</td>
                         `;
                         tbody.appendChild(tr);
@@ -213,15 +224,13 @@
                     btn.innerText = "데이터 불러오기 (새로고침)";
                 } catch (e) {
                     console.error(e);
-                    // 데이터 파싱 에러시 명확하게 표시
-                    tbody.innerHTML = '<tr><td colspan="10" style="color:#ff5722;">데이터를 불러오지 못했습니다.<br>구글 스크립트 코드 업데이트 후 <b>[새 배포]</b>가 정상적으로 완료되었는지 확인해 주세요.</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="10" style="color:#ff5722;">데이터를 불러오지 못했습니다.</td></tr>';
                     btn.innerText = "데이터 불러오기 (새로고침)";
                 }
             })
             .catch(err => {
-                tbody.innerHTML = '<tr><td colspan="10">통신 오류가 발생했습니다. 인터넷 연결을 확인해 주세요.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="10">통신 오류가 발생했습니다.</td></tr>';
                 btn.innerText = "데이터 불러오기 (새로고침)";
-                console.error(err);
             });
     }
 
@@ -236,4 +245,3 @@
 
 </body>
 </html>
-
