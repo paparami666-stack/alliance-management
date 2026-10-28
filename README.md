@@ -17,11 +17,20 @@
         .btn-excel { background: #4caf50; }
         button:hover { opacity: 0.9; }
         
-        /* 표(테이블) 배경색과 글자색 명확하게 고정 */
+        /* 표(테이블) 디자인 완벽 고정 (하얀 배경에 검은 글씨) */
         table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-        th { background-color: #4facfe; color: #000000; padding: 10px; border: 1px solid #444; }
-        td { background-color: #2a2a40; color: #ffffff; padding: 10px; border: 1px solid #555; text-align: center; font-size: 13px; }
+        th { background-color: #4facfe; color: #000000; padding: 10px; border: 1px solid #444; font-weight: bold; }
+        td { 
+            background-color: #ffffff; /* 배경을 무조건 하얀색으로 */
+            color: #000000; /* 글자를 무조건 검은색으로 */
+            padding: 10px; 
+            border: 1px solid #cccccc; 
+            text-align: center; 
+            font-size: 14px; 
+            font-weight: 500;
+        }
         
+        /* 총점 뱃지 디자인 */
         .score-badge { 
             color: #ffffff; 
             padding: 4px 12px; 
