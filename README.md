@@ -19,7 +19,15 @@
         table { width: 100%; border-collapse: collapse; margin-top: 15px; background-color: #1e1e2f; }
         th, td { border: 1px solid #444; padding: 10px; text-align: center; font-size: 13px; }
         th { background-color: #4facfe; color: black; }
-        .score-total { font-weight: bold; color: #ffeb3b; }
+        /* 총점 디자인 개선: 오렌지색 배경에 하얀 글씨로 확 눈에 띄게 변경 */
+        .score-total span { 
+            background-color: #ff5722; 
+            color: #ffffff; 
+            padding: 4px 10px; 
+            border-radius: 5px; 
+            font-weight: bold; 
+            display: inline-block;
+        }
         .action-buttons { display: flex; gap: 10px; }
     </style>
 </head>
@@ -33,8 +41,8 @@
         <div class="form-group">
             <label>직책</label>
             <select id="role">
-                <option value="R5">R5 (맹주)</option><option value="R4">R4 (간부)</option>
-                <option value="R3">R3</option><option value="R2">R2</option><option value="R1">R1 (신입)</option>
+                <option value="R5">R5 </option><option value="R4">R4 </option>
+                <option value="R3">R3</option><option value="R2">R2</option><option value="R1">R1 </option>
             </select>
         </div>
         <hr style="border-color:#444; margin: 20px 0;">
@@ -51,14 +59,13 @@
             <select id="canyon"><option value="1">참여 (+1점)</option><option value="0" selected>미참여 (0점)</option><option value="-1">노쇼 (-1점)</option></select>
         </div>
         
-        <!-- 단순 비교/참고용 항목 -->
         <hr style="border-color:#444; margin: 20px 0;">
         <div class="form-group">
-            <label>명함점수 (비교용)</label>
+            <label>명함점수 </label>
             <input type="number" id="namecard" value="0" placeholder="점수 입력">
         </div>
         <div class="form-group">
-            <label>SVS 준비단계 점수 (비교용)</label>
+            <label>SVS 준비단계 점수 </label>
             <input type="number" id="svsPrep" value="0" placeholder="점수 입력">
         </div>
 
@@ -98,7 +105,6 @@
 </div>
 
 <script>
-    // ★ 알려주신 구글 앱스 스크립트 '웹 앱 URL' 적용 완료 ★
     const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbxeLvHvpmdSHcSbeGGDIaFL9Z1B3XwfZO5B7cv7F42RFJl3BjhPQMee4APQHIGtl3Oi/exec";
 
     document.getElementById('allianceForm').addEventListener('submit', function(e) {
@@ -113,7 +119,6 @@
         const namecardScore = parseInt(document.getElementById('namecard').value) || 0;
         const svsPrepScore = parseInt(document.getElementById('svsPrep').value) || 0;
         
-        // 총점 계산 (명함점수와 SVS준비단계 점수는 제외)
         const total = svsScore + weaponScore + canyonScore;
 
         const data = {
@@ -136,14 +141,12 @@
         }).then(() => {
             alert('저장 완료!');
             document.getElementById('allianceForm').reset();
-            
-            // 리셋 후 기본값이 0이 되도록 재설정
             document.getElementById('namecard').value = 0;
             document.getElementById('svsPrep').value = 0;
             
             btn.innerText = "구글 시트에 저장";
             btn.disabled = false;
-            loadData(); // 저장 후 갱신
+            loadData();
         }).catch(err => {
             alert('저장 오류가 발생했습니다.');
             btn.innerText = "구글 시트에 저장";
@@ -158,34 +161,65 @@
         tbody.innerHTML = '<tr><td colspan="10">구글 시트에서 데이터를 읽고 있습니다...</td></tr>';
 
         fetch(GOOGLE_SHEET_URL)
-            .then(response => response.json())
-            .then(data => {
-                tbody.innerHTML = ""; 
-                for(let i = 1; i < data.length; i++) {
-                    let row = data[i];
-                    if(!row[0]) continue; 
+            .then(response => response.text())
+            .then(text => {
+                try {
+                    const data = JSON.parse(text);
+                    tbody.innerHTML = ""; 
                     
-                    let dateStr = row[9] ? new Date(row[9]).toLocaleString('ko-KR') : "";
+                    if(data.length <= 1) {
+                        tbody.innerHTML = '<tr><td colspan="10">기록된 데이터가 없습니다.</td></tr>';
+                        btn.innerText = "데이터 불러오기 (새로고침)";
+                        return;
+                    }
 
-                    let tr = document.createElement('tr');
-                    tr.innerHTML = `
-                        <td>${row[0] || ""}</td>
-                        <td>${row[1] || ""}</td>
-                        <td>${row[2] || ""}</td>
-                        <td>${row[3] !== undefined ? row[3] : ""}</td>
-                        <td>${row[4] !== undefined ? row[4] : ""}</td>
-                        <td>${row[5] !== undefined ? row[5] : ""}</td>
-                        <td>${row[6] !== undefined ? row[6] : "0"}</td>
-                        <td>${row[7] !== undefined ? row[7] : "0"}</td>
-                        <td class="score-total">${row[8] !== undefined ? row[8] : "0"}</td>
-                        <td style="font-size:11px;">${dateStr}</td>
-                    `;
-                    tbody.appendChild(tr);
+                    for(let i = 1; i < data.length; i++) {
+                        let row = data[i];
+                        if(!row[0]) continue; 
+                        
+                        // 옛날 데이터(8칸)와 요즘 데이터(10칸) 호환성 맞춤 처리
+                        let namecard = 0;
+                        let svsPrep = 0;
+                        let totalScore = 0;
+                        let dateStr = "";
+
+                        if (row.length <= 8) {
+                            // 항목 추가 전 과거 데이터
+                            totalScore = row[6] !== undefined ? row[6] : 0;
+                            dateStr = row[7] ? new Date(row[7]).toLocaleString('ko-KR') : "";
+                        } else {
+                            // 항목 추가 후 최신 데이터
+                            namecard = row[6] !== undefined ? row[6] : 0;
+                            svsPrep = row[7] !== undefined ? row[7] : 0;
+                            totalScore = row[8] !== undefined ? row[8] : 0;
+                            dateStr = row[9] ? new Date(row[9]).toLocaleString('ko-KR') : "";
+                        }
+
+                        let tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td>${row[0] || ""}</td>
+                            <td>${row[1] || ""}</td>
+                            <td>${row[2] || ""}</td>
+                            <td>${row[3] !== undefined ? row[3] : "0"}</td>
+                            <td>${row[4] !== undefined ? row[4] : "0"}</td>
+                            <td>${row[5] !== undefined ? row[5] : "0"}</td>
+                            <td>${namecard}</td>
+                            <td>${svsPrep}</td>
+                            <td class="score-total"><span>${totalScore}</span></td>
+                            <td style="font-size:11px;">${dateStr}</td>
+                        `;
+                        tbody.appendChild(tr);
+                    }
+                    btn.innerText = "데이터 불러오기 (새로고침)";
+                } catch (e) {
+                    console.error(e);
+                    // 데이터 파싱 에러시 명확하게 표시
+                    tbody.innerHTML = '<tr><td colspan="10" style="color:#ff5722;">데이터를 불러오지 못했습니다.<br>구글 스크립트 코드 업데이트 후 <b>[새 배포]</b>가 정상적으로 완료되었는지 확인해 주세요.</td></tr>';
+                    btn.innerText = "데이터 불러오기 (새로고침)";
                 }
-                btn.innerText = "데이터 불러오기 (새로고침)";
             })
             .catch(err => {
-                tbody.innerHTML = '<tr><td colspan="10">데이터를 불러오는 데 실패했습니다. 구글 시트 앱스 스크립트 권한 설정을 확인해주세요.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="10">통신 오류가 발생했습니다. 인터넷 연결을 확인해 주세요.</td></tr>';
                 btn.innerText = "데이터 불러오기 (새로고침)";
                 console.error(err);
             });
@@ -201,4 +235,5 @@
 </script>
 
 </body>
-</html># alliance-management
+</html>
+
