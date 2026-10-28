@@ -53,8 +53,8 @@
         <div class="form-group">
             <label>직책</label>
             <select id="role">
-                <option value="R5">R5 (맹주)</option><option value="R4">R4 (간부)</option>
-                <option value="R3">R3</option><option value="R2">R2</option><option value="R1">R1 (신입)</option>
+                <option value="R5">R5 </option><option value="R4">R4 </option>
+                <option value="R3">R3</option><option value="R2">R2</option><option value="R1">R1 </option>
             </select>
         </div>
         <hr style="border-color:#444; margin: 20px 0;">
