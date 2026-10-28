@@ -1,4 +1,3 @@
-<!DOCTYPE html>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
@@ -6,31 +5,40 @@
     <title>동맹원 관리 시스템</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
-        body { font-family: 'Malgun Gothic', sans-serif; background-color: #1e1e2f; color: #ffffff; padding: 20px; max-width: 900px; margin: auto; }
-        .container, .dashboard { background-color: #2a2a40; padding: 20px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.3); margin-bottom: 20px; }
-        h2 { text-align: center; color: #4facfe; }
+        body { font-family: 'Malgun Gothic', sans-serif; background-color: #1e1e2f; color: #ffffff; padding: 15px; max-width: 900px; margin: auto; }
+        .container, .dashboard { background-color: #2a2a40; padding: 20px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.3); margin-bottom: 20px; box-sizing: border-box; }
+        h2 { text-align: center; color: #4facfe; margin-top: 0; }
+        
         .form-group { margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; }
-        input, select { padding: 8px; border-radius: 5px; border: 1px solid #4facfe; background-color: #1e1e2f; color: white; width: 60%; }
+        input, select { padding: 10px; border-radius: 5px; border: 1px solid #4facfe; background-color: #1e1e2f; color: white; width: 60%; box-sizing: border-box; }
         
         /* 수정 모드일 때 입력칸 배경색 처리 (잠금 표시) */
         input:read-only { background-color: #555; cursor: not-allowed; border: 1px solid #777; color: #ccc; } 
         
-        button { width: 100%; padding: 15px; border: none; color: white; font-weight: bold; font-size: 16px; border-radius: 5px; cursor: pointer; margin-top: 10px; }
+        button { width: 100%; padding: 15px; border: none; color: white; font-weight: bold; font-size: 16px; border-radius: 5px; cursor: pointer; margin-top: 10px; box-sizing: border-box; }
         .btn-submit { background: linear-gradient(to right, #4facfe 0%, #00f2fe 100%); }
         .btn-cancel { background: #9e9e9e; display: none; }
         .btn-load { background: #ff9800; margin-bottom: 10px; }
         .btn-excel { background: #4caf50; }
         button:hover { opacity: 0.9; }
         
-        /* 표(테이블) 디자인 완벽 고정 (하얀 배경에 검은 글씨) */
+        /* 표(테이블) 디자인: 모바일 찌그러짐 방지 (white-space: nowrap) */
         table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-        th { background-color: #4facfe; color: #000000; padding: 10px; border: 1px solid #444; font-weight: bold; }
-        td { background-color: #ffffff; color: #000000; padding: 10px; border: 1px solid #cccccc; text-align: center; font-size: 14px; font-weight: 500; }
+        th { background-color: #4facfe; color: #000000; padding: 10px; border: 1px solid #444; font-weight: bold; white-space: nowrap; }
+        td { background-color: #ffffff; color: #000000; padding: 10px; border: 1px solid #cccccc; text-align: center; font-size: 14px; font-weight: 500; white-space: nowrap; }
         
         /* 점수 뱃지 및 작은 수정 버튼 */
         .score-badge { color: #ffffff; padding: 4px 12px; border-radius: 5px; font-weight: bold; display: inline-block; }
         .btn-edit { background-color: #E91E63; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; font-size: 12px; width: auto; margin: 0;}
         .action-buttons { display: flex; gap: 10px; }
+
+        /* 스마트폰용(모바일) 세로 모드 대응 스타일 */
+        @media (max-width: 600px) {
+            .form-group { flex-direction: column; align-items: flex-start; }
+            input, select { width: 100%; margin-top: 8px; }
+            .action-buttons { flex-direction: column; gap: 0; }
+            .btn-excel { margin-top: 0; }
+        }
     </style>
 </head>
 <body>
@@ -38,7 +46,6 @@
 <div class="container">
     <h2 id="formTitle">동맹원 점수 신규 입력</h2>
     <form id="allianceForm">
-        <!-- actionType을 이용해 신규(append)인지 수정(update)인지 구분 -->
         <input type="hidden" id="actionType" value="append">
 
         <div class="form-group"><label>아이디</label><input type="text" id="memberId" required></div>
@@ -46,8 +53,8 @@
         <div class="form-group">
             <label>직책</label>
             <select id="role">
-                <option value="R5">R5 </option><option value="R4">R4 </option>
-                <option value="R3">R3</option><option value="R2">R2</option><option value="R1">R1 </option>
+                <option value="R5">R5 (맹주)</option><option value="R4">R4 (간부)</option>
+                <option value="R3">R3</option><option value="R2">R2</option><option value="R1">R1 (신입)</option>
             </select>
         </div>
         <hr style="border-color:#444; margin: 20px 0;">
@@ -87,7 +94,8 @@
         <button class="btn-excel" onclick="downloadExcel()">엑셀 파일로 다운로드</button>
     </div>
 
-    <div style="overflow-x: auto;">
+    <!-- overflow-x: auto 속성이 좁은 화면에서 가로 스크롤을 만들어줍니다 -->
+    <div style="overflow-x: auto; margin-top: 15px; border-radius: 5px;">
         <table id="dataTable">
             <thead>
                 <tr>
@@ -101,7 +109,7 @@
                     <th>SVS준비</th>
                     <th>총점</th>
                     <th>기록일시</th>
-                    <th>관리</th> <!-- 수정 버튼을 위한 열 -->
+                    <th>관리</th> 
                 </tr>
             </thead>
             <tbody id="allRecordTable">
@@ -112,7 +120,6 @@
 </div>
 
 <script>
-    // ★ 알려주신 새로운 구글 앱스 스크립트 '웹 앱 URL' 적용 완료 ★
     const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbxNSGW65c-7JaqkWbCG3JakHgTkIxL3EZgOIXTete2P6QyvQswxgq1FsYmA2oYGAi8/exec";
 
     let globalSheetData = []; 
@@ -130,7 +137,6 @@
         const namecardScore = parseInt(document.getElementById('namecard').value) || 0;
         const svsPrepScore = parseInt(document.getElementById('svsPrep').value) || 0;
         
-        // 총점 계산 (명함점수, SVS준비 제외)
         const total = svsScore + weaponScore + canyonScore;
 
         const data = {
